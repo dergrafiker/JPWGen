@@ -36,7 +36,7 @@ public class JPWGen {
 
     @Parameter(names = {"-wld", "--wordlistdir"}, description = "wordlists come from here")
     private File wordListDir = null;
-    @Parameter(names = {"-fsf", "--fileSuffixFilter"}, description = "files have to match this name pattern")
+    @Parameter(names = {"-fsf", "--fileSuffixFilter"}, description = "files have to match this name pattern", converter = WildcardFileFilterConverter.class)
     private WildcardFileFilter wildcardFileFilter = new WildcardFileFilter("*.txt");
     @Parameter(names = {"-mr", "--matchregex"}, converter = MatcherConverter.class, description = "by this regex lines are filtered. observe filtered lines by adding debug")
     private Matcher lineMatcher = Pattern.compile("(?i)[a-z]*[aeuioy][a-z]*").matcher("");
