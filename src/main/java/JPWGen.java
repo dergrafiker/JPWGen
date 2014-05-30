@@ -35,7 +35,7 @@ public class JPWGen {
     private static final Logger logger = LoggerFactory.getLogger(JPWGen.class);
 
     @Parameter(names = {"-wld", "--wordlistdir"}, description = "wordlists come from here")
-    File wordListDir = null;
+    private File wordListDir = null;
     @Parameter(names = {"-fsf", "--fileSuffixFilter"}, description = "files have to match this name pattern")
     private WildcardFileFilter wildcardFileFilter = new WildcardFileFilter("*.txt");
     @Parameter(names = {"-mr", "--matchregex"}, converter = MatcherConverter.class, description = "by this regex lines are filtered. observe filtered lines by adding debug")
@@ -44,13 +44,13 @@ public class JPWGen {
     private Integer minWordLength = 3;
     @Parameter(names = {"-w", "--wordcount"}, description = "sets the wordcount for produced password")
     private Integer wordCount = 5;
-    @Parameter(names = { "-f", "--fillString" }, description = "String put between words to increase entropy")
+    @Parameter(names = {"-f", "--fillString"}, description = "String put between words to increase entropy")
     private String fillString = "";
-    @Parameter(names = { "-p", "--pwcount" }, description = "this many passwords will be generated")
+    @Parameter(names = {"-p", "--pwcount"}, description = "this many passwords will be generated")
     private Integer passwordCount = 10;
-    @Parameter(names = { "-d", "--debug" }, description = "Debug mode")
+    @Parameter(names = {"-d", "--debug"}, description = "Debug mode")
     private boolean isDebug = false;
-    @Parameter(names = { "-h", "--help" }, description = "prints usage", help = true)
+    @Parameter(names = {"-h", "--help"}, description = "prints usage", help = true)
     private boolean isHelp = false;
 
     public static void main(String[] args) throws NoSuchProviderException, NoSuchAlgorithmException {
