@@ -35,7 +35,7 @@ public class JPWGen {
     private static final Logger logger = LoggerFactory.getLogger(JPWGen.class);
 
     @Parameter(names = {"-wld", "--wordlistdir"}, description = "wordlists come from here")
-    private File wordListDir = null;
+    private File wordListDir = new File("wordlist");
     @Parameter(names = {"-fsf", "--fileSuffixFilter"}, description = "files have to match this name pattern", converter = WildcardFileFilterConverter.class)
     private WildcardFileFilter wildcardFileFilter = new WildcardFileFilter("*.txt");
     @Parameter(names = {"-mr", "--matchregex"}, converter = MatcherConverter.class, description = "by this regex lines are filtered. observe filtered lines by adding debug")
@@ -52,6 +52,7 @@ public class JPWGen {
     private boolean isDebug = false;
     @Parameter(names = {"-h", "--help"}, description = "prints usage", help = true)
     private boolean isHelp = false;
+    private Matcher wordlistPrefixMatcher = Pattern.compile("(?i)^\\d+\\s+").matcher("");
 
     public static void main(String[] args) throws NoSuchProviderException, NoSuchAlgorithmException {
         JPWGen jpwGen = new JPWGen();
@@ -161,6 +162,11 @@ public class JPWGen {
         try {
             List<String> allLinesFromFile = FileUtils.readLines(file, "UTF-8");
             for (String line : allLinesFromFile) {
+                Matcher replaceMatcher = wordlistPrefixMatcher.reset(line);
+                if(replaceMatcher.find()) {
+                    line = replaceMatcher.replaceFirst("");
+                }
+
                 if (linePassesFilter(line))
                     uniqueLines.add(line.toLowerCase());
                 else
