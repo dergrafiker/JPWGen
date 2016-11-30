@@ -2,7 +2,13 @@ import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
+import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.commons.compress.compressors.CompressorInputStream;
+import org.apache.commons.compress.compressors.CompressorStreamFactory;
+import org.apache.commons.io.Charsets;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOCase;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -33,11 +39,13 @@ import java.util.regex.Pattern;
 
 public class JPWGen {
     private static final Logger logger = LoggerFactory.getLogger(JPWGen.class);
+    private static final CompressorStreamFactory COMPRESSOR_STREAM_FACTORY = new CompressorStreamFactory();
+    private static final Matcher wordlistPrefixMatcher = Pattern.compile("(?i)^\\d+\\s+").matcher("");
 
     @Parameter(names = {"-wld", "--wordlistdir"}, description = "wordlists come from here")
     private File wordListDir = new File("wordlist");
     @Parameter(names = {"-fsf", "--fileSuffixFilter"}, description = "files have to match this name pattern", converter = WildcardFileFilterConverter.class)
-    private WildcardFileFilter wildcardFileFilter = new WildcardFileFilter("*.txt");
+    private WildcardFileFilter wildcardFileFilter = new WildcardFileFilter(new String[]{"*.txt", "*.txt.zip", "*.txt.gz"}, IOCase.INSENSITIVE);
     @Parameter(names = {"-mr", "--matchregex"}, converter = MatcherConverter.class, description = "by this regex lines are filtered. observe filtered lines by adding debug")
     private Matcher lineMatcher = Pattern.compile("(?i)[a-z]*[aeuioy][a-z]*").matcher("");
     @Parameter(names = {"-mwl", "--minwordlength"}, description = "wordlength must be greater or equal")
@@ -52,7 +60,6 @@ public class JPWGen {
     private boolean isDebug = false;
     @Parameter(names = {"-h", "--help"}, description = "prints usage", help = true)
     private boolean isHelp = false;
-    private Matcher wordlistPrefixMatcher = Pattern.compile("(?i)^\\d+\\s+").matcher("");
 
     public static void main(String[] args) throws NoSuchProviderException, NoSuchAlgorithmException {
         JPWGen jpwGen = new JPWGen();
@@ -160,10 +167,18 @@ public class JPWGen {
         if (file == null || uniqueLines == null)
             return;
         try {
-            List<String> allLinesFromFile = FileUtils.readLines(file, "UTF-8");
+            List<String> allLinesFromFile = null;
+
+            try {
+                CompressorInputStream compressorInputStream = COMPRESSOR_STREAM_FACTORY.createCompressorInputStream(IOUtils.buffer(FileUtils.openInputStream(file)));
+                allLinesFromFile = IOUtils.readLines(compressorInputStream, Charsets.toCharset("UTF-8"));
+            } catch (CompressorException | IllegalArgumentException ex) {
+                allLinesFromFile = FileUtils.readLines(file, "UTF-8");
+            }
+
             for (String line : allLinesFromFile) {
                 Matcher replaceMatcher = wordlistPrefixMatcher.reset(line);
-                if(replaceMatcher.find()) {
+                if (replaceMatcher.find()) {
                     line = replaceMatcher.replaceFirst("");
                 }
 
