@@ -1,3 +1,5 @@
+package jpwgen.main;
+
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
