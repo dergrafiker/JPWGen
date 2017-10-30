@@ -79,15 +79,17 @@ public class JPWGen {
     }
 
     private void run() throws UnsupportedEncodingException {
-        if (this.fillString.isEmpty())
+        if (this.fillString.isEmpty()) {
             logger.warn("fillstring is empty. this reduces entropy.");
+        }
 
         Set<String> uniqueLines = new HashSet<>();
         Set<String> filteredLines = new HashSet<>();
 
         searchForWordlistFiles(uniqueLines, filteredLines, getClassLoaderPath());
-        if (wordListDir != null && wordListDir.isDirectory())
+        if (wordListDir != null && wordListDir.isDirectory()) {
             searchForWordlistFiles(uniqueLines, filteredLines, wordListDir);
+        }
 
         if (this.isDebug) {
             List<String> filteredList = new ArrayList<>(filteredLines);
@@ -99,8 +101,9 @@ public class JPWGen {
             }
         }
 
-        if (uniqueLines.isEmpty())
+        if (uniqueLines.isEmpty()) {
             throw new IllegalArgumentException("no lines to process");
+        }
 
         List<String> allLines = new ArrayList<>(uniqueLines);
         Collections.sort(allLines);
@@ -134,8 +137,9 @@ public class JPWGen {
         while (this.wordCount > chosenLines.size()) {
             int i = getRandomInstance().nextInt(allLines.size());
             String s = allLines.get(i);
-            if (this.isDebug)
+            if (this.isDebug) {
                 logger.debug("{} => {}", i, s);
+            }
             chosenLines.add(s);
         }
         if (logger.isInfoEnabled()) {
@@ -166,8 +170,9 @@ public class JPWGen {
     }
 
     private void processFile(Set<String> uniqueLines, Set<String> filteredLines, File file) {
-        if (file == null || uniqueLines == null)
+        if (file == null || uniqueLines == null) {
             return;
+        }
         try {
             List<String> allLinesFromFile = readLinesFromFile(file);
 
@@ -177,10 +182,11 @@ public class JPWGen {
                     line = replaceMatcher.replaceFirst("");
                 }
 
-                if (linePassesFilter(line))
+                if (linePassesFilter(line)) {
                     uniqueLines.add(line.toLowerCase());
-                else
+                } else {
                     filteredLines.add(line.toLowerCase());
+                }
             }
         } catch (IOException e) {
             logger.error("error in processFile", e);
