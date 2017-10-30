@@ -17,7 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
@@ -27,22 +27,16 @@ import java.net.URLDecoder;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@SuppressWarnings({"FieldCanBeLocal", "WeakerAccess", "CanBeFinal", "SpellCheckingInspection"})
 public class JPWGen {
     private static final Logger logger = LoggerFactory.getLogger(JPWGen.class);
     private static final CompressorStreamFactory COMPRESSOR_STREAM_FACTORY = new CompressorStreamFactory();
     private static final Matcher wordlistPrefixMatcher = Pattern.compile("(?i)^\\d+\\s+").matcher("");
+    private static final String UTF_8 = "UTF-8";
 
     @Parameter(names = {"-wld", "--wordlistdir"}, description = "wordlists come from here")
     private File wordListDir = new File("wordlist");
@@ -63,7 +57,7 @@ public class JPWGen {
     @Parameter(names = {"-h", "--help"}, description = "prints usage", help = true)
     private boolean isHelp = false;
 
-    public static void main(String[] args) throws NoSuchProviderException, NoSuchAlgorithmException {
+    public static void main(String[] args) {
         JPWGen jpwGen = new JPWGen();
         JCommander jCommander = new JCommander(jpwGen);
         jCommander.setProgramName(jpwGen.getClass().getSimpleName());
@@ -84,34 +78,31 @@ public class JPWGen {
         }
     }
 
-    private void run() throws FileNotFoundException, UnsupportedEncodingException {
+    private void run() throws UnsupportedEncodingException {
         if (this.fillString.isEmpty())
             logger.warn("fillstring is empty. this reduces entropy.");
 
-        Set<String> uniqueLines = new HashSet<String>();
-        Set<String> filteredLines = new HashSet<String>();
+        Set<String> uniqueLines = new HashSet<>();
+        Set<String> filteredLines = new HashSet<>();
 
         searchForWordlistFiles(uniqueLines, filteredLines, getClassLoaderPath());
         if (wordListDir != null && wordListDir.isDirectory())
             searchForWordlistFiles(uniqueLines, filteredLines, wordListDir);
 
         if (this.isDebug) {
-            List<String> filteredList = new ArrayList<String>(filteredLines);
+            List<String> filteredList = new ArrayList<>(filteredLines);
 
-            Collections.sort(filteredList, new Comparator<String>() {
-                @Override
-                public int compare(String o1, String o2) {
-                    return Integer.valueOf(o1.length()).compareTo(o2.length());
-                }
-            });
+            filteredList.sort(Comparator.comparingInt(String::length));
             Collections.reverse(filteredList);
-            logger.debug("filtered lines (longest lines go first): {}", StringUtils.join(filteredList, ", "));
+            if (logger.isDebugEnabled()) {
+                logger.debug("filtered lines (longest lines go first): {}", StringUtils.join(filteredList, ", "));
+            }
         }
 
         if (uniqueLines.isEmpty())
             throw new IllegalArgumentException("no lines to process");
 
-        List<String> allLines = new ArrayList<String>(uniqueLines);
+        List<String> allLines = new ArrayList<>(uniqueLines);
         Collections.sort(allLines);
         for (int i = 0; i < this.passwordCount; i++) {
             generatePassword(allLines);
@@ -119,21 +110,27 @@ public class JPWGen {
     }
 
     private void searchForWordlistFiles(Set<String> uniqueLines, Set<String> filteredLines, File file) {
-        logger.info("searching path {} for files matching {}", file.getAbsolutePath(), wildcardFileFilter.toString());
-        for (File f : file.listFiles((java.io.FileFilter) wildcardFileFilter)) {
-            logger.info("found file {}", f.getName());
-            processFile(uniqueLines, filteredLines, f);
+        if (logger.isInfoEnabled()) {
+            logger.info("searching path {} for files matching {}",
+                        file.getAbsolutePath(), wildcardFileFilter.toString());
+        }
+        File[] filteredFiles = file.listFiles((FileFilter) wildcardFileFilter);
+        if (filteredFiles != null) {
+            for (File f : filteredFiles) {
+                logger.info("found file {}", f.getName());
+                processFile(uniqueLines, filteredLines, f);
+            }
         }
     }
 
     private File getClassLoaderPath() throws UnsupportedEncodingException {
         String path = this.getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
-        String decodedPath = URLDecoder.decode(path, "UTF-8");
+        String decodedPath = URLDecoder.decode(path, UTF_8);
         return new File(decodedPath).getParentFile();
     }
 
     private void generatePassword(List<String> allLines) {
-        Set<String> chosenLines = new LinkedHashSet<String>();
+        Set<String> chosenLines = new LinkedHashSet<>();
         while (this.wordCount > chosenLines.size()) {
             int i = getRandomInstance().nextInt(allLines.size());
             String s = allLines.get(i);
@@ -141,8 +138,13 @@ public class JPWGen {
                 logger.debug("{} => {}", i, s);
             chosenLines.add(s);
         }
-        logger.info("[ {} ] [ {} ] length {}, entropy {}", StringUtils.join(chosenLines, " "), StringUtils.join(chosenLines, this.fillString),
-                getLength(chosenLines), calcEntropy(allLines.size(), chosenLines.size()));
+        if (logger.isInfoEnabled()) {
+            logger.info("[ {} ] [ {} ] length {}, entropy {}",
+                        StringUtils.join(chosenLines, " "),
+                        StringUtils.join(chosenLines, this.fillString),
+                        getLength(chosenLines),
+                        calcEntropy(allLines.size(), chosenLines.size()));
+        }
     }
 
     private int getLength(Collection<String> collection) {
@@ -158,9 +160,7 @@ public class JPWGen {
             SecureRandom random = SecureRandom.getInstance("SHA1PRNG", "SUN");
             random.nextBytes(new byte[512]); // Calling nextBytes method to generate Random Bytes
             return random;
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("was unable to instanciate PRNG", e);
-        } catch (NoSuchProviderException e) {
+        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
             throw new RuntimeException("was unable to instanciate PRNG", e);
         }
     }
@@ -169,14 +169,7 @@ public class JPWGen {
         if (file == null || uniqueLines == null)
             return;
         try {
-            List<String> allLinesFromFile = null;
-
-            try {
-                CompressorInputStream compressorInputStream = COMPRESSOR_STREAM_FACTORY.createCompressorInputStream(IOUtils.buffer(FileUtils.openInputStream(file)));
-                allLinesFromFile = IOUtils.readLines(compressorInputStream, Charsets.toCharset("UTF-8"));
-            } catch (CompressorException | IllegalArgumentException ex) {
-                allLinesFromFile = FileUtils.readLines(file, "UTF-8");
-            }
+            List<String> allLinesFromFile = readLinesFromFile(file);
 
             for (String line : allLinesFromFile) {
                 Matcher replaceMatcher = wordlistPrefixMatcher.reset(line);
@@ -194,16 +187,27 @@ public class JPWGen {
         }
     }
 
+    private List<String> readLinesFromFile(File file) throws IOException {
+        List<String> allLinesFromFile;
+        try {
+            CompressorInputStream compressorInputStream = COMPRESSOR_STREAM_FACTORY.createCompressorInputStream(IOUtils.buffer(FileUtils.openInputStream(file)));
+            allLinesFromFile = IOUtils.readLines(compressorInputStream, Charsets.toCharset(UTF_8));
+        } catch (CompressorException | IllegalArgumentException ex) {
+            allLinesFromFile = FileUtils.readLines(file, UTF_8);
+        }
+        return allLinesFromFile;
+    }
+
     private boolean linePassesFilter(String line) {
         lineMatcher.reset(line);
         return lineMatcher.matches() && line.length() >= minWordLength;
     }
 
-    public boolean isHelp() {
+    private boolean isHelp() {
         return isHelp;
     }
 
-    public BigDecimal calcEntropy(int base, int exponent) {
+    private BigDecimal calcEntropy(int base, int exponent) {
         BigDecimal pow = BigDecimal.valueOf(base).pow(exponent, MathContext.DECIMAL128);
         BigDecimal logValue = BigDecimal.valueOf(Math.log(pow.doubleValue()));
         BigDecimal logTwo = BigDecimal.valueOf(Math.log(2.00));
