@@ -27,11 +27,19 @@ import java.net.URLDecoder;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-@SuppressWarnings({"FieldCanBeLocal", "WeakerAccess", "CanBeFinal", "SpellCheckingInspection"})
+@SuppressWarnings({"FieldCanBeLocal", "WeakerAccess", "CanBeFinal"})
 public class JPWGen {
     private static final Logger logger = LoggerFactory.getLogger(JPWGen.class);
     private static final CompressorStreamFactory COMPRESSOR_STREAM_FACTORY = new CompressorStreamFactory();
@@ -78,7 +86,7 @@ public class JPWGen {
         }
     }
 
-    private void run() throws UnsupportedEncodingException {
+    private void run() throws UnsupportedEncodingException, NoSuchProviderException, NoSuchAlgorithmException {
         if (this.fillString.isEmpty()) {
             logger.warn("fillstring is empty. this reduces entropy.");
         }
@@ -115,7 +123,7 @@ public class JPWGen {
     private void searchForWordlistFiles(Set<String> uniqueLines, Set<String> filteredLines, File file) {
         if (logger.isInfoEnabled()) {
             logger.info("searching path {} for files matching {}",
-                        file.getAbsolutePath(), wildcardFileFilter.toString());
+                        file.getAbsolutePath(), wildcardFileFilter);
         }
         File[] filteredFiles = file.listFiles((FileFilter) wildcardFileFilter);
         if (filteredFiles != null) {
@@ -132,7 +140,7 @@ public class JPWGen {
         return new File(decodedPath).getParentFile();
     }
 
-    private void generatePassword(List<String> allLines) {
+    private void generatePassword(List<String> allLines) throws NoSuchProviderException, NoSuchAlgorithmException {
         Set<String> chosenLines = new LinkedHashSet<>();
         while (this.wordCount > chosenLines.size()) {
             int i = getRandomInstance().nextInt(allLines.size());
@@ -159,14 +167,10 @@ public class JPWGen {
         return length;
     }
 
-    private Random getRandomInstance() {
-        try {
-            SecureRandom random = SecureRandom.getInstance("SHA1PRNG", "SUN");
-            random.nextBytes(new byte[512]); // Calling nextBytes method to generate Random Bytes
-            return random;
-        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
-            throw new RuntimeException("was unable to instanciate PRNG", e);
-        }
+    private Random getRandomInstance() throws NoSuchProviderException, NoSuchAlgorithmException {
+        SecureRandom random = SecureRandom.getInstance("SHA1PRNG", "SUN");
+        random.nextBytes(new byte[512]); // Calling nextBytes method to generate Random Bytes
+        return random;
     }
 
     private void processFile(Set<String> uniqueLines, Set<String> filteredLines, File file) {
@@ -195,8 +199,8 @@ public class JPWGen {
 
     private List<String> readLinesFromFile(File file) throws IOException {
         List<String> allLinesFromFile;
-        try {
-            CompressorInputStream compressorInputStream = COMPRESSOR_STREAM_FACTORY.createCompressorInputStream(IOUtils.buffer(FileUtils.openInputStream(file)));
+        try (CompressorInputStream compressorInputStream =
+                     COMPRESSOR_STREAM_FACTORY.createCompressorInputStream(IOUtils.buffer(FileUtils.openInputStream(file)))) {
             allLinesFromFile = IOUtils.readLines(compressorInputStream, Charsets.toCharset(UTF_8));
         } catch (CompressorException | IllegalArgumentException ex) {
             allLinesFromFile = FileUtils.readLines(file, UTF_8);
